@@ -11,7 +11,8 @@ module uart_rx_top (
   // SW1, SW2, SW3, SW4, SW5, SW6, SW7,
   // CA, CB, CC, CD, CE, CF, CG, DP,
   // AN0, AN1, AN2, AN3,
-  UART_RXD, PMODBT_RST, PMODBT_CTS);
+  UART_RXD, PMODBT_RST, PMODBT_CTS,
+  VGA_R, VGA_G, VGA_B, VGA_H_SYNC, VGA_V_SYNC);
 
   input CLK;
   input SW0;
@@ -27,6 +28,8 @@ module uart_rx_top (
   input UART_RXD;
   output PMODBT_RST;
   output PMODBT_CTS;
+  output VGA_R, VGA_G, VGA_B;
+  output VGA_H_SYNC, VGA_V_SYNC;
 
   assign {MEM_OE, MEM_WR, RAM_CS, FLASH_CS, QUAD_SPI_FLASH_CS} = 5'b11111;
 
@@ -43,7 +46,44 @@ module uart_rx_top (
   wire[7:0] byte_rx;
   wire done_rx;
 
+  reg[9:0] x_coordinate;
+  reg[9:0] y_coordinate;
+  reg[7:0] data[3:0];
+  reg[1:0] data_counter;
+  
+  	reg[5:0] div_clk;
+	always @(posedge clk, posedge reset) begin
+		if (reset) 
+			div_clk <= 0;
+		else 
+			div_clk <= div_clk + 1'b1;
+	end
+
   uart_rx_ctrl inst_uart_rx_ctrl( .uart_rx(uart_rx), .clk(clk), .reset(reset), .done_rx(done_rx), .byte_rx(byte_rx));
+  vga_demo inst_vga_demo( .clk(div_clk[1]), .reset(reset), .x_coordinate(x_coordinate), .y_coordinate(y_coordinate),
+                          .vga_h_sync(VGA_H_SYNC), .vga_v_sync(VGA_V_SYNC), .vga_r(VGA_R), .vga_g(VGA_G), .vga_b(VGA_B));
+
+
+	
+  always @ (posedge clk, posedge reset) begin
+    if (reset) begin
+      x_coordinate <= 240;
+      y_coordinate <= 240;
+      data_counter <= 0;
+    end else begin
+      if (done_rx) begin
+        data[data_counter] = byte_rx;
+
+        if (data_counter == 2'b11) begin
+          x_coordinate <= {data[1][1], data[1][0], data[0]};
+          y_coordinate <= {data[3][1], data[3][0], data[2]};
+        end
+
+        data_counter <= data_counter + 1;
+      end
+    end
+  end
+
 
   reg[7:0] led_output;
   assign LED0 = led_output[0];
@@ -57,6 +97,7 @@ module uart_rx_top (
 
   assign PMODBT_CTS = 0;
   assign PMODBT_RST = 1;
+
   always @ (posedge clk, posedge reset) begin
     if (reset) begin
       led_output <= 8'b11111111;
