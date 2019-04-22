@@ -8,6 +8,7 @@
 #include <X11/Xlib.h>
 #include <string>
 
+//bluetooth io code adapted from a stackoverflow post...
 int set_interface_attribs (int fd, int speed, int parity) {
     struct termios tty;
     memset (&tty, 0, sizeof tty);
@@ -63,6 +64,7 @@ void set_blocking (int fd, int should_block) {
         printf("error %d setting term attributes", errno);
 }
 
+//cursor coordinate capturing code adapted from https://rosettacode.org/wiki/Mouse_position#C
 std::pair<uint16_t, uint16_t> get_coordinates() {
     Display *d;
     Window inwin;      /* root window the pointer is in */
